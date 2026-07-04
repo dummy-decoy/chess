@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>game of chess</title>
+        <style>
+            @font-face {
+                font-family: "Noto Sans";
+                src: local("Noto Sans"), 
+                     url("fonts/NotoSans-Regular.ttf") format("truetype"),
+                     url("fonts/NotoSans-Regular.woff") format("woff"),
+                     url("fonts/NotoSans-Regular.woff2") format("woff2");
+            }
+            @font-face {
+                font-family: "Noto Sans Symbols 2";
+                src: local("Noto Sans Symbols 2"), 
+                     url("fonts/NotoSansSymbols2-Regular.ttf") format("truetype"),
+                     url("fonts/NotoSansSymbols2-Regular.woff") format("woff"),
+                     url("fonts/NotoSansSymbols2-Regular.woff2") format("woff2");
+            }
+
+            :root {
+                --light-square: #ffffff;
+                --dark-square: #e0e0e0;
+                --board-size: min(80vmin, 300px);
+                --label-size: min(4vmin, 32px);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                background: #f5f5f5;
+                font-family: "Noto Sans", sans-serif;
+            }
+
+            .page {
+                width: 100%;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px 12px 28px;
+            }
+
+            .title {
+                margin: 0;
+                color: #000000;
+                font-size: clamp(1.8rem, 4vw, 2.4rem);
+                font-weight: 700;
+                text-align: center;
+            }
+
+            .board {
+                width: 100%;
+                height: 100%;
+                display: grid;
+                grid-template-columns: repeat(8, 1fr);
+                grid-template-rows: repeat(8, 1fr);
+                border: 2px solid #9a9a9a;
+                grid-column: 2 / 10;
+                grid-row: 2 / 10;
+            }
+            .board-area {
+                width: calc(var(--board-size) + (var(--label-size) * 2));
+                height: calc(var(--board-size) + (var(--label-size) * 2));
+                display: grid;
+                grid-template-columns: var(--label-size) repeat(8, 1fr) var(--label-size);
+                grid-template-rows: var(--label-size) repeat(8, 1fr) var(--label-size);
+                align-items: stretch;
+                justify-items: stretch;
+                margin-top: 0px;
+            }
+
+            .taken-area {
+                width: var(--board-size);
+                margin-top: 0px;
+                display: flex;
+                justify-content: center;
+            }
+            .taken-table {
+                border-collapse: collapse;
+                width: 100%;
+                border-spacing: 0;
+                margin: 0 auto;
+            }
+            .taken {
+                width: 50%;
+                height: 2em;
+                font-size: 1rem;
+                font-family: "Noto Sans Symbols 2", sans-serif;
+                overflow-wrap: anywhere;
+                vertical-align: top;
+            }
+            .taken.white {
+                text-align: left;
+            }
+            .taken.black {
+                text-align: right;
+                direction: rtl;
+                unicode-bidi: bidi-override;
+            }
+            .points {
+                font-size: 0.7rem;
+                font-family: "Noto Sans", sans-serif;
+                direction: ltr;
+                unicode-bidi: bidi-override;
+                color: #5b5b5b;
+            }
+
+            .moves-area {
+                width: calc(var(--board-size) + (var(--label-size) * 2));
+                margin-top: 20px;
+                color: #222222;
+                display: flex;
+                justify-content: center;
+            }
+            .moves-table {
+                border-collapse: collapse;
+                margin: 0 auto;
+            }
+            .moves-table td {
+                padding: 2px 10px;
+                font-size: 0.98rem;
+                line-height: 1.35;
+            }
+            .move-number-cell {
+                text-align: right;
+                font-weight: bold;
+                min-width: 42px;
+                padding-right: 14px;
+            }
+            .white-move-cell,
+            .black-move-cell {
+                text-align: left;
+                min-width: 56px;
+            }
+
+            .score-area {
+                width: calc(var(--board-size) + (var(--label-size) * 2));
+                margin-top: 16px;
+                color: #222222;
+                font-weight: 700;
+                display: flex;
+                justify-content: center;
+            }
+
+            .controls-area {
+                width: var(--board-size);
+                margin-top: 20px;
+                margin-bottom: 0px;
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+            }
+            .revert-toggle {
+                display: none;
+            }
+            .revert-label {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                font-size: 0.9rem;
+                color: #222222;
+            }
+            .toggle-switch {
+                width: 24px;
+                height: 16px;
+                background: #c0c0c0;
+                border-radius: 8px;
+                position: relative;
+                transition: background 120ms ease;
+                margin-right: 6px;
+            }
+            .toggle-switch::after {
+                content: '';
+                position: absolute;
+                width: 12px;
+                height: 12px;
+                background: #ffffff;
+                border-radius: 50%;
+                top: 2px;
+                left: 2px;
+                transition: left 120ms ease;
+            }
+            .revert-toggle:checked + .revert-label .toggle-switch {
+                background: #474747;
+            }
+            .revert-toggle:checked + .revert-label .toggle-switch::after {
+                left: 11px;
+            }
+
+            .undo-icon {
+                margin-left: auto;
+                cursor: pointer;
+                font-size: 1.5rem;
+                color: #5b5b5b;
+                user-select: none;
+            }
+            .redo-icon {
+                cursor: pointer;
+                font-size: 1.5rem;
+                color: #5b5b5b;
+                user-select: none;
+            }
+
+            .label {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #5b5b5b;
+                font: 600 calc(var(--label-size) * 0.55) / 1 "Noto Sans", sans-serif;
+                user-select: none;
+            }
+            .square {
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                font-size: calc(var(--board-size) / 10);
+                font-family: "Noto Sans Symbols 2", sans-serif;
+                line-height: 1;
+                user-select: none;
+                font-variant-emoji: text;
+                text-shadow: 0px 0px 2px white;
+            }
+            .light {
+                background: var(--light-square);
+            }
+            .dark {
+                background: var(--dark-square);   
+            }
+
+            .light.possible-move {
+                background:
+                    radial-gradient(circle, #a0a0a0 0 21%, transparent 22%),
+                    var(--light-square);
+                background-repeat: no-repeat;
+                background-position: center;
+            }
+            .dark.possible-move {
+                background:
+                    radial-gradient(circle, #a0a0a0 0 21%, transparent 22%),
+                    var(--dark-square);
+                background-repeat: no-repeat;
+                background-position: center;
+            }
+
+            .promotion-hide {
+                filter: brightness(40%);
+            }
+            .promotion-choice {
+                background: transparent;
+            }
+        </style>
+        <script src="chess.js"></script>
+        <script>
+            var game = null
+
+            function position_to_id(position) {
+                const columns = 'abcdefgh';
+                const lines = '12345678';
+                return columns[position[0]] + lines[position[1]];
+            }
+            function id_to_position(id) {
+                const columns = 'abcdefgh';
+                const lines = '12345678';
+                return [columns.indexOf(id[0]), lines.indexOf(id[1])];
+            }
+            function clear_possible_moves() {
+                document.querySelectorAll(".possible-move").forEach((element) => {
+                    element.classList.remove("possible-move");
+                });
+            }
+            function display_possible_moves(moves) {
+                clear_possible_moves();
+
+                for (let position of moves) {
+                    let id = position_to_id(position);
+                    const square = document.getElementById(id);
+                    if (square) {
+                        square.classList.add("possible-move");
+                    }
+                }
+            }
+            function clear_promotion() {
+                document.querySelectorAll(".promotion-hide").forEach((element) => {
+                    element.classList.remove("promotion-hide");
+                });
+                document.querySelectorAll(".promotion-choice").forEach((element) => {
+                    element.classList.remove("promotion-choice");
+                });
+                update_board();
+            }
+            function display_promotion() {
+                document.getElementById('board').classList.add("promotion-hide");
+                let square = document.getElementById('c5');
+                square.classList.add("promotion-choice");
+                square.textContent = '♕';
+                square = document.getElementById('d5');
+                square.classList.add("promotion-choice");
+                square.textContent = '♖';
+                square = document.getElementById('e5');
+                square.classList.add("promotion-choice");
+                square.textContent = '♗';
+                square = document.getElementById('f5');
+                square.classList.add("promotion-choice");
+                square.textContent = '♘';
+            }
+            function update_taken() {
+                const taken_white_area = document.getElementById("taken-white");
+                const taken_black_area = document.getElementById("taken-black");
+
+                points = { [pieces.queen]: 9, [pieces.rook]: 5, [pieces.bishop]: 3, [pieces.knight]: 3, [pieces.pawn]: 1 };
+
+                let white_content = game.taken[colors.white];
+                let white_points = white_content.reduce((sum, piece) => sum + points[piece.type], 0);
+                white_content.sort((a, b) => {const symbols = ['\u2655', '\u265b', '\u2656', '\u265c', '\u2657', '\u265d', '\u2658', '\u265e', '\u2659', '\u265f']; return symbols.indexOf(a.symbol) - symbols.indexOf(b.symbol)});
+                white_content = white_content.map(piece => piece.symbol).join('');
+                
+                let black_content = game.taken[colors.black];
+                let black_points = black_content.reduce((sum, piece) => sum + points[piece.type], 0);
+                black_content.sort((a, b) => {const symbols = ['\u2655', '\u265b', '\u2656', '\u265c', '\u2657', '\u265d', '\u2658', '\u265e', '\u2659', '\u265f']; return symbols.indexOf(a.symbol) - symbols.indexOf(b.symbol)});
+                black_content = black_content.map(piece => piece.symbol).join('');
+
+                taken_white_area.innerHTML = white_content + (white_points - black_points > 0 ? ` <span class="points">(+${white_points - black_points})</span>` : '');
+                taken_black_area.innerHTML = black_content + (black_points - white_points > 0 ? ` <span class="points">(+${black_points - white_points})</span>` : '');
+            }
+            function update_score() {
+                const score_area = document.getElementById("score-area");
+                if (game.checkmate(game.turn)) {
+                    score_area.textContent = (game.turn === colors.white ? '0 - 1' : '1 - 0');
+                    disable_board();
+                } else if (game.draw(game.turn)) {
+                    score_area.textContent = '½ - ½';
+                    disable_board();
+                } else {
+                    score_area.textContent = '';
+                    enable_board();
+                }
+            }
+            function update_board() {
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const id = position_to_id([col, row]);
+                        const square = document.getElementById(id);
+                        if (square) {
+                            square.textContent = (game.board[row][col] !== null ? game.board[row][col].symbol : '');
+                        }
+                    }
+                }
+                update_taken();
+                update_score();
+            }
+            function disable_board() {
+                document.querySelectorAll(".square").forEach((element) => {
+                    element.removeEventListener('click', on_square_click);
+                });
+            }
+            function enable_board() {
+                document.querySelectorAll(".square").forEach((element) => {
+                    element.addEventListener('click', on_square_click);
+                });
+            }
+            function revert_board() {
+                document.querySelectorAll(".label").forEach((element) => {
+                    element.style.gridColumn = String(11 - parseInt(element.style.gridColumn));
+                    element.style.gridRow = String(11 - parseInt(element.style.gridRow));
+                });
+                document.querySelectorAll(".square").forEach((element) => {
+                    element.style.gridColumn = String(9 - parseInt(element.style.gridColumn));
+                    element.style.gridRow = String(9 - parseInt(element.style.gridRow));
+                });
+            }
+            function update_log() {
+                const movesArea = document.getElementById("moves-area");
+                movesArea.innerHTML = "";
+
+                const table = document.createElement("table");
+                table.className = "moves-table";
+                const tbody = document.createElement("tbody");
+
+                game.log.forEach((move, index) => {
+                  const row = document.createElement("tr");
+
+                  const move_number = document.createElement("td");
+                  move_number.className = "move-number-cell";
+                  move_number.textContent = `${index + 1}.`;
+
+                  const white_move = document.createElement("td");
+                  white_move.className = "white-move-cell";
+                  white_move.textContent = move[0];
+
+                  const black_move = document.createElement("td");
+                  black_move.className = "black-move-cell";
+                  black_move.textContent = move.length > 1 ? move[1] : '';
+
+                  row.appendChild(move_number);
+                  row.appendChild(white_move);
+                  row.appendChild(black_move);
+                  tbody.appendChild(row);
+                });
+
+                table.appendChild(tbody);
+                movesArea.appendChild(table);
+            }
+            function undo() {
+                clear_possible_moves();
+                clear_promotion();
+                game.undo();
+                update_board();
+                update_log();
+                selected_from_square = null;
+                selected_to_square = null;
+            }
+            function redo() {
+                clear_possible_moves();
+                clear_promotion();
+                game.redo();
+                update_board();
+                update_log();
+                selected_from_square = null;
+                selected_to_square = null;
+            }
+
+            var selected_from_square = null;
+            var selected_to_square = null;
+            function update_play(from, to, promote=null) {
+                if (game.play(from, to, promote)) {
+                    clear_possible_moves();
+                    update_board();
+                    update_log();
+                    selected_from_square = null;
+                    selected_to_square = null;
+                } else {
+                    display_possible_moves(game.select(to));
+                    selected_from_square = position_to_id(to);
+                }
+            }
+            function on_square_click(event) {
+                const square = event.currentTarget.id;
+                const position = id_to_position(square);
+
+                if ((selected_from_square === null)) {
+                    display_possible_moves(game.select(position));
+                    selected_from_square = square;
+                } else {
+                    const from = id_to_position(selected_from_square);
+                    const to = (selected_to_square ? id_to_position(selected_to_square) : position);
+
+                    if (selected_to_square === null) {
+                        if (selected_from_square === square) {
+                            selected_from_square = null;
+                            clear_possible_moves();
+                        } else {
+                            const piece = game.board[from[1]][from[0]];
+                            if ((piece !== null) &&(piece.type == pieces.pawn) &&(piece.color == colors.white ? (from[1] === game.board.length-2 && to[1] === game.board.length-1) : (from[1] === 1 && to[1] === 0))) {
+                                selected_to_square = square;
+                                display_promotion();
+                            } else {
+                                update_play(from, to);
+                            }
+                        }
+                    } else {
+                        clear_promotion();
+                        selected_from_square = null;
+                        selected_to_square = null;
+                        
+                        let promote = {'c5': pieces.queen, 'd5': pieces.rook, 'e5': pieces.bishop, 'f5': pieces.knight}[square] || null;
+                        update_play(from, to, promote);
+                    }
+                }
+            }
+
+            window.onload = (event) => {
+                // initilize the game
+                game = new chess();
+
+                // prepare the board
+                const board = document.getElementById('board');
+                const board_area = document.getElementById('board-area');
+
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+                for (let i = 0; i < 8; i++) {
+                    const top_file = document.createElement('div');
+                    top_file.className = 'label';
+                    top_file.textContent = files[i];
+                    top_file.style.gridColumn = String(i + 2);
+                    top_file.style.gridRow = '1';
+                    board_area.appendChild(top_file);
+
+                    const bottom_file = document.createElement('div');
+                    bottom_file.className = 'label';
+                    bottom_file.textContent = files[i];
+                    bottom_file.style.gridColumn = String(i + 2);
+                    bottom_file.style.gridRow = '10';
+                    board_area.appendChild(bottom_file);
+
+                    const left_rank = document.createElement('div');
+                    left_rank.className = 'label';
+                    left_rank.textContent = ranks[i];
+                    left_rank.style.gridColumn = '1';
+                    left_rank.style.gridRow = String(i + 2);
+                    board_area.appendChild(left_rank);
+
+                    const right_rank = document.createElement('div');
+                    right_rank.className = 'label';
+                    right_rank.textContent = ranks[i];
+                    right_rank.style.gridColumn = '10';
+                    right_rank.style.gridRow = String(i + 2);
+                    board_area.appendChild(right_rank);
+                }
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const square = document.createElement('div');
+                        const id = `${files[col]}${ranks[row]}`;
+                        const light = (row + col) % 2 === 0;
+                        square.id = id;
+                        square.className = `square ${light ? 'light' : 'dark'}`;
+                        square.style.gridColumn = String(col + 1);
+                        square.style.gridRow = String(row + 1);
+                        square.addEventListener('click', on_square_click);
+                        board.appendChild(square);
+                    }
+                }
+                update_board();
+            }
+        </script>
+    </head>
+    <body>
+        <div class="page">
+            <h1 class="title">game of chess</h1>
+            <div class="controls-area">
+                <input type="checkbox" id="revert-toggle" class="revert-toggle" onchange="revert_board()" />
+                <label for="revert-toggle" class="revert-label">
+                    <div class="toggle-switch"></div>
+                    revert
+                </label>
+                <div class="undo-icon" onclick="undo()">&lt;</div>&nbsp;<div class="redo-icon" onclick="redo()">&gt;</div>
+            </div>
+            <div class="board-area" id="board-area">
+                <div class="board" id="board"></div>
+            </div>
+            <div class="taken-area" id="taken-area">
+                <table class="taken-table"><tbody><tr><td id="taken-white" class="taken white"></td><td id="taken-black" class="taken black"></td></tr></tbody></table>
+            </div>
+            <div class="moves-area" id="moves-area"></div>
+            <div class="score-area" id="score-area"></div>
+        </div>
+    </body>
+</html>
