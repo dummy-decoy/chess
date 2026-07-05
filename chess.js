@@ -30,9 +30,9 @@ const clone = (obj) => {
 
 class pawn {
     type = pieces.pawn;
+    static letter = '';
     color;
     moved = false;
-    letter = '';
     symbol;
     constructor(color) {
         this.color = color;
@@ -75,9 +75,9 @@ class pawn {
 }
 class knight {
     type = pieces.knight;
+    static letter = 'N';
     color;
     moved = false;
-    letter = 'N';
     symbol;
     constructor(color) {
         this.color = color;
@@ -99,9 +99,9 @@ class knight {
 }
 class bishop {
     type = pieces.bishop;
+    static letter = 'B';
     color;
     moved = false;
-    letter = 'B';
     symbol;
     constructor(color) {
         this.color = color;
@@ -167,9 +167,9 @@ class bishop {
 }
 class rook {
     type = pieces.rook;
+    static letter = 'R';
     color;
     moved = false;
-    letter = 'R';
     symbol;
     constructor(color) {
         this.color = color;
@@ -226,9 +226,9 @@ class rook {
 }
 class queen {
     type = pieces.queen;
+    static letter = 'Q';
     color;
     moved = false;
-    letter = 'Q';
     symbol;
     constructor(color) {
         this.color = color;
@@ -243,9 +243,9 @@ class queen {
 }
 class king {
     type = pieces.king;
+    static letter = 'K';
     color;
     moved = false;
-    letter = 'K';
     symbol;
     constructor(color) {
         this.color = color;
@@ -300,7 +300,7 @@ class king {
 class chess {
     turn = colors.white;
     board = [];
-    log = [];
+    scoresheet = [];
     kings = {[colors.white]: [4,0], [colors.black]: [4,7]};
     taken = {[colors.white]: [], [colors.black]: []};
     enpassant = null;
@@ -322,14 +322,14 @@ class chess {
 
     save() {
         this.redo_stack = [];
-        this.undo_stack.push({turn: this.turn, log: clone(this.log), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
+        this.undo_stack.push({turn: this.turn, scoresheet: clone(this.scoresheet), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
     }
     undo() {
         if (this.undo_stack.length > 0) {
             let save = this.undo_stack.pop();
-            this.redo_stack.push({turn: this.turn, log: clone(this.log), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
+            this.redo_stack.push({turn: this.turn, scoresheet: clone(this.scoresheet), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
             this.turn = save.turn;
-            this.log = save.log;
+            this.scoresheet = save.scoresheet;
             this.kings = save.kings;
             this.taken = save.taken;
             this.enpassant = save.enpassant;
@@ -339,9 +339,9 @@ class chess {
     redo() {
         if (this.redo_stack.length > 0) {
             let save = this.redo_stack.pop();
-            this.undo_stack.push({turn: this.turn, log: clone(this.log), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
+            this.undo_stack.push({turn: this.turn, scoresheet: clone(this.scoresheet), kings: clone(this.kings), taken: clone(this.taken), enpassant: clone(this.enpassant), board: clone(this.board)});
             this.turn = save.turn;
-            this.log = save.log;
+            this.scoresheet = save.scoresheet;
             this.kings = save.kings;
             this.taken = save.taken;
             this.enpassant = save.enpassant;
@@ -544,6 +544,63 @@ class chess {
         return moves;
     }
 
+    log(piece, from, to, take=false, enpassant=false,promote=false, castle=null) {
+        const columns = 'abcdefgh';
+        const lines = '12345678';
+        
+        let desc = ''
+        if (castle === castles.kingside) {
+            desc = 'O-O';
+        } else if (castle === castles.queenside) {
+            desc = 'O-O-O';
+        } else {
+            let dest = columns[to[0]] + lines[to[1]];
+            
+            let disambig = '';
+            if (piece.type === pieces.pawn) {
+                if (take || enpassant) {
+                    disambig = columns[from[0]];
+                }
+            } else {
+                let same = [];
+                for (let y = 0; y < this.board.length; y++) {
+                    for (let x = 0; x < this.board[y].length; x++) {
+                        let other = this.board[y][x];
+                        if ((other !== null) && (other.type === piece.type) && (other.color === piece.color) && !((x === to[0]) && (y === to[1]))) {
+                            if ((piece.type === pieces.rook || piece.type === pieces.queen) && (to[1] === y || to[0] === x)
+                                || (piece.type === pieces.bishop || piece.type === pieces.queen) && (Math.abs(to[0]-x) === Math.abs(to[1]-y))
+                                || (piece.type === pieces.knight) && (Math.abs(to[0]-x) === 2 && Math.abs(to[1]-y) === 1 || Math.abs(to[0]-x) === 1 && Math.abs(to[1]-y) === 2)) {
+                                same.push([x, y]);
+                            }
+                        }
+                    }
+                }
+                if (same.length > 0) {
+                    if (same.every((other) => other[0] !== from[0])) {
+                        disambig = columns[from[0]];
+                    } else if (same.every((other) => other[1] !== from[1])) {
+                        disambig = lines[from[1]];
+                    } else {
+                        disambig = columns[from[0]] + lines[from[1]];
+                    }
+                }
+            }
+            desc = piece.constructor.letter + disambig + ((take || enpassant) ? 'x' : '') + dest + (promote ? '=' + this.board[to[1]][to[0]].constructor.letter : '') + (enpassant ? ' e.p.' : '');
+        } 
+
+       if (this.checkmate(this.turn)) {
+            desc += '#';
+        } else if (this.checked(this.kings[this.turn])) {
+            desc += '+';
+        }
+        
+        if ((this.scoresheet.length == 0) || (this.scoresheet[this.scoresheet.length-1].length == 2)) {
+            this.scoresheet.push([desc]);
+        } else {
+            this.scoresheet[this.scoresheet.length-1].push(desc);
+        }
+    }
+
     move(from, to) {
         let piece = this.board[from[1]][from[0]];
         let moves = this.moves(from);
@@ -645,23 +702,13 @@ class chess {
         return [];
     }
     play(from, to, promote=null) {
-        const format = (letter, from, to, take=false, promote='', castle=null, check=false, mate=false) => {
-            const columns = 'abcdefgh';
-            const lines = '12345678';
-            return (castle ? (castle === castles.kingside ? 'O-O' : 'O-O-O') : letter+(take?'x':'')+columns[to[0]]+lines[to[1]]+(promote ? '='+promote : '')) + (check&&!mate?'+':'') + (mate?'#':'');
-        }
-
         let piece = this.board[from[1]][from[0]];
         let take = (this.board[to[1]][to[0]] !== null);
         let castle = (piece !== null && piece.type === pieces.king && Math.abs(from[0]-to[0]) == 2) ? (from[0]>to[0] ? castles.queenside : castles.kingside) : null;
+        let enpassant = (piece !== null && piece.type === pieces.pawn && this.enpassant !== null && this.enpassant.every((val, index) => val === to[index]));
         if ((piece !== null) && (piece.color === this.turn) && (this.castle(from, castle) || this.promote(from, to, promote) || this.move(from, to))) {
             this.turn = (this.turn === colors.white) ? colors.black : colors.white;
-            let desc = format(piece.letter, from, to, take, (promote !== null ? this.board[to[1]][to[0]].letter : ''), castle, this.checked(this.kings[this.turn]), this.checkmate(this.turn));
-            if ((this.log.length == 0) || (this.log[this.log.length-1].length == 2)) {
-                this.log.push([desc]);
-            } else {
-                this.log[this.log.length-1].push(desc);
-            }
+            this.log(piece, from, to, take, enpassant, (promote!==null), castle);
             return true;
         }
         return false;
